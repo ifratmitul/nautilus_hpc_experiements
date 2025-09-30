@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vindr-cxr-download-job
+  namespace: longweiwangusd
+spec:
+  template:
+    spec:
+      containers:
+      - name: download-container
+        image: continuumio/anaconda3:latest
+        command: ["/bin/bash"]
+        args: ["-c", "cd /data/vindr && bash wget_d.sh"]
+        env:
+        - name: KAGGLE_USERNAME
+          value: "ifratmitul"
+        - name: KAGGLE_KEY
+          value: "cc5db889e9f22174190ff2b6d5c34fba"
+        volumeMounts:
+        - name: data-storage
+          mountPath: /data
+        resources:
+          requests:
+            memory: "128Gi"
+            cpu: "8"
+          limits:
+            memory: "256Gi"
+            cpu: "12"
+      volumes:
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: vindr-cxr-pvc
+      restartPolicy: Never
+  backoffLimit: 0

@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lieconv-training-job
+  namespace: longweiwangusd
+spec:
+  template:
+    spec:
+      containers:
+      - name: lieconv-container
+        image: continuumio/anaconda3:latest
+        command: ["/bin/bash"]
+        args: ["-c", "cd /lieconv && source setup_lieconv.sh && python test_train.py"]
+        # args: ["-c", "cd /lieconv && chmod +x setup_lieconv.sh && source ./setup_lieconv.sh && source activate lieconv && python test_train.py"]
+        # args: ["-c", "cd /lieconv && chmod +x setup_lieconv.sh && ./setup_lieconv.sh && source activate lieconv && python test_train.py"]
+        volumeMounts:
+        - name: data-storage
+          mountPath: /lieconv
+        - name: dshm
+          mountPath: /dev/shm
+        resources:
+          requests:
+            memory: "32Gi"
+            cpu: "8"
+            nvidia.com/rtxa6000: 1
+          limits:
+            memory: "32Gi"
+            cpu: "12"
+            nvidia.com/rtxa6000: 1
+      volumes:
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: experiment-data-pvc-shared
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: "8Gi"
+      restartPolicy: Never
+  backoffLimit: 1

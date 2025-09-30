@@ -1,0 +1,97 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kaggle-download-job
+  namespace: longweiwangusd
+spec:
+  template:
+    spec:
+      containers:
+      - name: kaggle-downloader
+        image: python:3.9-slim
+        command: ["/bin/bash"]
+        args: ["-c", "
+          pip install kagglehub &&
+          cd /data &&
+          python -c \"
+import kagglehub
+import os
+import shutil
+import zipfile
+
+print('Starting ImageNet100 dataset download...')
+print('This may take several minutes...')
+
+# Create ImageNet100 directory
+imagenet_dir = '/data/ImageNet100'
+os.makedirs(imagenet_dir, exist_ok=True)
+print(f'Created directory: {imagenet_dir}')
+
+# Download dataset
+path = kagglehub.dataset_download('wilyzh/imagenet100')
+print(f'Dataset downloaded to: {path}')
+
+# List contents of downloaded path
+print('Downloaded files:')
+for root, dirs, files in os.walk(path):
+    level = root.replace(path, '').count(os.sep)
+    indent = ' ' * 2 * level
+    print(f'{indent}{os.path.basename(root)}/')
+    subindent = ' ' * 2 * (level + 1)
+    for file in files[:5]:  # Show first 5 files
+        print(f'{subindent}{file}')
+    if len(files) > 5:
+        print(f'{subindent}... and {len(files)-5} more files')
+
+# Move contents to /data/ImageNet100 directory
+print('Moving files to /data/ImageNet100 directory...')
+for item in os.listdir(path):
+    src = os.path.join(path, item)
+    dst = os.path.join(imagenet_dir, item)
+    if os.path.isdir(src):
+        if os.path.exists(dst):
+            shutil.rmtree(dst)
+        shutil.move(src, dst)
+    else:
+        if os.path.exists(dst):
+            os.remove(dst)
+        shutil.move(src, dst)
+
+# Check for and extract any zip files in ImageNet100 folder
+print('Checking for zip files to extract in ImageNet100 folder...')
+for item in os.listdir(imagenet_dir):
+    if item.endswith('.zip'):
+        zip_path = os.path.join(imagenet_dir, item)
+        print(f'Extracting {item} in ImageNet100 folder...')
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(imagenet_dir)
+        print(f'Extracted {item}')
+
+print('Dataset successfully downloaded and processed in /data/ImageNet100')
+print('Contents of /data:')
+os.system('ls -la /data/')
+print('Contents of /data/ImageNet100:')
+os.system('ls -la /data/ImageNet100/')
+          \"
+        "]
+        volumeMounts:
+        - name: shared-data
+          mountPath: /data
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+          limits:
+            memory: "8Gi"
+            cpu: "4"
+        env:
+        - name: KAGGLE_USERNAME
+          value: "ifratmitul"
+        - name: KAGGLE_KEY
+          value: "1f7e782d9f7f3f62c37c7cf1f70e68b8"
+      volumes:
+      - name: shared-data
+        persistentVolumeClaim:
+          claimName: experiment-data-pvc-shared
+      restartPolicy: Never
+  backoffLimit: 1

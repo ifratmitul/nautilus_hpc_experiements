@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lieconv-training-job
+  namespace: longweiwangusd
+spec:
+  template:
+    spec:
+      containers:
+      - name: lieconv-container
+        image: continuumio/anaconda3:latest
+        command: ["/bin/bash"]
+        args: ["-c", "cd /lieconv && ./setup_lieconv.sh && source activate lieconv && python test_train.py"]
+        volumeMounts:
+        - name: shared-data
+          mountPath: /data
+        - name: dshm
+          mountPath: /dev/shm
+        resources:
+          requests:
+            memory: "32Gi"
+            cpu: "8"
+            nvidia.com/rtxa6000: 1
+          limits:
+            memory: "32Gi"
+            cpu: "12"
+            nvidia.com/rtxa6000: 1
+        env:
+        - name: PYTHONPATH
+          value: "/lieconv:/lieconv/LieConv"
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "all"
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: "compute,utility"
+      volumes:
+      - name: shared-data
+        persistentVolumeClaim:
+          claimName: experiment-data-pvc-shared
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: "4Gi"
+      restartPolicy: Never
+  backoffLimit: 1
